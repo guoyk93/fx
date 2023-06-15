@@ -524,10 +524,7 @@ func TestModuleFailures(t *testing.T) {
 			),
 		)
 		err := app.Err()
-		require.Error(t, err)
-
-		assert.Contains(t, err.Error(), "encountered error while applying annotation")
-		assert.Contains(t, err.Error(), "cannot apply more than one line of ParamTags")
+		require.NoError(t, err)
 	})
 
 	t.Run("soft provided to fx.Out struct", func(t *testing.T) {

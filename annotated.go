@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"go.uber.org/dig"
@@ -151,6 +152,47 @@ var (
 	errTagValueSyntaxEndingQuote = errors.New(`tag value should end in double quote. i.e. key:"value" `)
 )
 
+var (
+	validKeys = map[string]struct{}{"group": {}, "optional": {}, "name": {}}
+)
+
+// merge tag value with existing one.
+func mergeTag(s0 string, s1 string) string {
+	if s0 == "" || s1 == "" {
+		return s0 + s1
+	}
+
+	t0, t1 := reflect.StructTag(s0), reflect.StructTag(s1)
+
+	var ret []string
+
+	for key := range validKeys {
+		v1, ok1 := t1.Lookup(key)
+		if ok1 {
+			ret = append(ret, key+":"+strconv.Quote(v1))
+			continue
+		}
+		v0, ok0 := t0.Lookup(key)
+		if ok0 {
+			ret = append(ret, key+":"+strconv.Quote(v0))
+			continue
+		}
+	}
+
+	return strings.Join(ret, " ")
+}
+
+// merge new tags with existing ones.
+func mergeTags(existed []string, tags []string) []string {
+	for i := 0; i < len(existed) && i < len(tags); i++ {
+		existed[i] = mergeTag(existed[i], tags[i])
+	}
+	if len(tags) > len(existed) {
+		existed = append(existed, tags[len(existed):]...)
+	}
+	return existed
+}
+
 // Collections of key value pairs within a tag should be separated by a space.
 // Eg: `group:"some" optional:"true"`.
 func verifyTagsSpaceSeparated(tagIdx int, tag string) error {
@@ -187,7 +229,6 @@ func verifyValueQuote(value string) (string, error) {
 // Currently dig accepts only 'name', 'group', 'optional' as valid tag keys.
 func verifyAnnotateTag(tag string) error {
 	tagIdx := 0
-	validKeys := map[string]struct{}{"group": {}, "optional": {}, "name": {}}
 	for ; tag != ""; tagIdx++ {
 		if err := verifyTagsSpaceSeparated(tagIdx, tag); err != nil {
 			return err
@@ -227,21 +268,18 @@ func verifyAnnotateTag(tag string) error {
 //   }
 //
 // If there has already been a ParamTag that was applied, this
-// will return an error.
+// will merge them.
 //
 // If the tag is invalid and has mismatched quotation for example,
 // (`tag_name:"tag_value') , this will return an error.
 
 func (pt paramTagsAnnotation) apply(ann *annotated) error {
-	if len(ann.ParamTags) > 0 {
-		return errors.New("cannot apply more than one line of ParamTags")
-	}
 	for _, tag := range pt.tags {
 		if err := verifyAnnotateTag(tag); err != nil {
 			return err
 		}
 	}
-	ann.ParamTags = pt.tags
+	ann.ParamTags = mergeTags(ann.ParamTags, pt.tags)
 	return nil
 }
 
@@ -364,20 +402,17 @@ var _ Annotation = resultTagsAnnotation{}
 //	}
 //
 // If there has already been a ResultTag that was applied, this
-// will return an error.
+// will merge them.
 //
 // If the tag is invalid and has mismatched quotation for example,
 // (`tag_name:"tag_value') , this will return an error.
 func (rt resultTagsAnnotation) apply(ann *annotated) error {
-	if len(ann.ResultTags) > 0 {
-		return errors.New("cannot apply more than one line of ResultTags")
-	}
 	for _, tag := range rt.tags {
 		if err := verifyAnnotateTag(tag); err != nil {
 			return err
 		}
 	}
-	ann.ResultTags = rt.tags
+	ann.ResultTags = mergeTags(ann.ResultTags, rt.tags)
 	return nil
 }
 

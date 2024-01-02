@@ -1,12 +1,12 @@
 module go.uber.org/fx
 
-go 1.19
+go 1.20
 
 require (
 	github.com/benbjohnson/clock v1.3.0
 	github.com/stretchr/testify v1.8.0
 	go.uber.org/atomic v1.7.0
-	go.uber.org/dig v1.17.0
+	go.uber.org/dig v1.17.1
 	go.uber.org/goleak v1.1.11
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.23.0
